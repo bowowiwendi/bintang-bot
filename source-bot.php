@@ -16,18 +16,13 @@ if ($is_help) {
 }
 
 if ($is_daemon) {
-    // Redirect output to log file
-    $log = fopen(LOG_FILE, 'a');
-    fwrite($log, "[" . date('Y-m-d H:i:s') . "] SERVICE STARTED\n");
-    fclose($log);
+    file_put_contents(LOG_FILE, "[" . date('Y-m-d H:i:s') . "] SERVICE STARTED\n", FILE_APPEND);
 
-    // Override echo to log
-    ob_start(function($buffer) use ($log) {
+    ob_start(function($buffer) {
         file_put_contents(LOG_FILE, "[" . date('Y-m-d H:i:s') . "] " . $buffer, FILE_APPEND);
         return '';
     }, 1);
 
-    // Write PID
     file_put_contents('/tmp/bintang-bot.pid', getmypid());
 }
 
@@ -356,22 +351,73 @@ function service_start() {
     $pid_file = '/tmp/bintang-bot.pid';
     if (file_exists($pid_file)) {
         $pid = trim(file_get_contents($pid_file));
-        if (file_exists("/proc/$pid")) {
-            draw_box([" " . color('yellow', "[⚠️] Service sudah berjalan (PID: $pid)")], 'yellow');
+        if (@file_exists("/proc/$pid")) {
+            draw_box([" " . color('yellow', "[!] Service sudah berjalan (PID: $pid)")], 'yellow');
             return;
         }
     }
 
-    $cmd = "nohup php " . __FILE__ . " --daemon > /dev/null 2>&1 &";
+    $script = $_SERVER['SCRIPT_FILENAME'];
+    $cmd = "nohup php $script --daemon > /dev/null 2>&1 &";
     exec($cmd);
-    sleep(1);
+    sleep(2);
 
     if (file_exists($pid_file)) {
         $pid = trim(file_get_contents($pid_file));
-        draw_box([" " . color('green', "[✓] Service dimulai (PID: $pid)")], 'green');
+        draw_box([" " . color('green', "[OK] Service dimulai (PID: $pid)")], 'green');
     } else {
-        draw_box([" " . color('red', "[❌] Gagal memulai service")], 'red');
+        draw_box([" " . color('red', "[X] Gagal memulai service")], 'red');
     }
+}
+
+function service_stop() {
+    $pid_file = '/tmp/bintang-bot.pid';
+    if (!file_exists($pid_file)) {
+        draw_box([" " . color('yellow', "[!] Service tidak berjalan")], 'yellow');
+        return;
+    }
+
+    $pid = trim(file_get_contents($pid_file));
+    exec("kill $pid 2>/dev/null");
+    sleep(1);
+    @unlink($pid_file);
+    draw_box([" " . color('green', "[OK] Service dihentikan")], 'green');
+}
+
+function service_status() {
+    $pid_file = '/tmp/bintang-bot.pid';
+    if (file_exists($pid_file)) {
+        $pid = trim(file_get_contents($pid_file));
+        if (@file_exists("/proc/$pid")) {
+            $cmd = @file_get_contents("/proc/$pid/cmdline");
+            $cmd = str_replace("\0", " ", $cmd);
+            draw_box([
+                " " . color('green', "[OK] SERVICE BERJALAN"),
+                " " . color('white', " PID: $pid")
+            ], 'green');
+            return;
+        }
+    }
+    draw_box([" " . color('red', "[X] SERVICE TIDAK BERJALAN")], 'red');
+}
+
+function service_logs() {
+    if (!file_exists(LOG_FILE)) {
+        draw_box([" " . color('yellow', "[!] Belum ada log")], 'yellow');
+        return;
+    }
+    $lines = file(LOG_FILE);
+    $last = array_slice($lines, -20);
+    echo "\n";
+    draw_box([" " . color('cyan', "20 LOG TERAKHIR")], 'cyan');
+    foreach ($last as $l) {
+        $clean = trim($l);
+        if (!empty($clean)) {
+            echo " " . color('white', $clean) . "\n";
+        }
+    }
+    echo "\n " . color('white', "Tekan ENTER...");
+    fgets(STDIN);
 }
 
 function service_stop() {
@@ -442,16 +488,16 @@ while (true) {
         color('blue', center_text("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")),
         " " . color('white', "Akun: $total (" . color('green', "$active_count aktif") . ")  Service: $service_status"),
         "",
-        " " . color('white', "1. " . color('green', "[+] Tambah Akun")),
-        " " . color('white', "2. " . color('cyan', "[i] Lihat Akun")),
-        " " . color('white', "3. " . color('red', "[-] Hapus Akun")),
-        " " . color('white', "4. " . color('yellow', "[↻] Sync / Claim Semua")),
+        " " . color('white', "1. ") . color('green', "Tambah Akun"),
+        " " . color('white', "2. ") . color('cyan', "Lihat Akun"),
+        " " . color('white', "3. ") . color('red', "Hapus Akun"),
+        " " . color('white', "4. ") . color('yellow', "Sync / Claim Semua"),
         color('blue', center_text("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")),
-        " " . color('white', "5. " . color('green', "[▶] Start Service")),
-        " " . color('white', "6. " . color('red', "[■] Stop Service")),
-        " " . color('white', "7. " . color('cyan', "[ℹ] Cek Status Service")),
-        " " . color('white', "8. " . color('white', "[📋] Lihat Log")),
-        " " . color('white', "9. " . color('red', "[x] Keluar"))
+        " " . color('white', "5. ") . color('green', "Start Service"),
+        " " . color('white', "6. ") . color('red', "Stop Service"),
+        " " . color('white', "7. ") . color('cyan', "Cek Status Service"),
+        " " . color('white', "8. ") . color('white', "Lihat Log"),
+        " " . color('white', "9. ") . color('red', "Keluar")
     ], 'cyan');
 
     echo "\n " . color('yellow', "[?] Pilih menu (1-9) : ");
