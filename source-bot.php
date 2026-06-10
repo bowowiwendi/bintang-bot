@@ -26,6 +26,63 @@ if ($is_daemon) {
     file_put_contents('/tmp/bintang-bot.pid', getmypid());
 }
 
+// Auto-detect & install dependencies
+$deps = [
+    'curl' => 'curl_init',
+    'json' => 'json_decode',
+    'mbstring' => 'mb_strwidth'
+];
+$missing = [];
+foreach ($deps as $ext => $func) {
+    if (!function_exists($func)) {
+        $missing[] = $ext;
+    }
+}
+if ($missing) {
+    echo "\n[MODULE MISSING] " . implode(', ', $missing) . "\n";
+    echo "Mencoba install otomatis...\n\n";
+
+    // Deteksi package manager
+    if (file_exists('/data/data/com.termux/files/usr/bin/pkg')) {
+        $pm = 'pkg install -y';
+        $map = ['curl' => 'php-curl', 'json' => 'php-json', 'mbstring' => 'php-mbstring'];
+    } elseif (file_exists('/usr/bin/apt')) {
+        $pm = 'apt install -y';
+        $ver = substr(PHP_VERSION, 0, 3);
+        $map = ['curl' => "php$ver-curl", 'json' => "php$ver-json", 'mbstring' => "php$ver-mbstring"];
+    } elseif (file_exists('/usr/bin/yum')) {
+        $pm = 'yum install -y';
+        $map = ['curl' => 'php-curl', 'json' => 'php-json', 'mbstring' => 'php-mbstring'];
+    } else {
+        echo "Tidak bisa deteksi package manager.\n";
+        echo "Install manual:\n";
+        foreach ($missing as $m) echo "  - php-$m\n";
+        echo "\nLalu jalankan ulang.\n";
+        exit(1);
+    }
+
+    $ok = true;
+    foreach ($missing as $m) {
+        $pkg = $map[$m] ?? "php-$m";
+        echo "  Install $pkg ... ";
+        $out = shell_exec("$pm $pkg 2>&1");
+        if (function_exists($deps[$m])) {
+            echo "OK\n";
+        } else {
+            echo "GAGAL\n  $out\n";
+            $ok = false;
+        }
+    }
+
+    if (!$ok) {
+        echo "\nGagal install module. Install manual:\n";
+        foreach ($missing as $m) echo "  pkg install php-$m\n";
+        exit(1);
+    }
+    echo "\nSemua module terinstall. Lanjut...\n\n";
+    sleep(1);
+}
+
 function log_msg($msg) {
     global $is_daemon;
     if ($is_daemon) {
