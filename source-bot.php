@@ -420,57 +420,6 @@ function service_logs() {
     fgets(STDIN);
 }
 
-function service_stop() {
-    $pid_file = '/tmp/bintang-bot.pid';
-    if (!file_exists($pid_file)) {
-        draw_box([" " . color('yellow', "[⚠️] Service tidak berjalan")], 'yellow');
-        return;
-    }
-
-    $pid = trim(file_get_contents($pid_file));
-    exec("kill $pid 2>/dev/null");
-    sleep(1);
-    @unlink($pid_file);
-    draw_box([" " . color('green', "[✓] Service dihentikan")], 'green');
-}
-
-function service_status() {
-    $pid_file = '/tmp/bintang-bot.pid';
-    if (file_exists($pid_file)) {
-        $pid = trim(file_get_contents($pid_file));
-        if (file_exists("/proc/$pid")) {
-            $cmd = file_get_contents("/proc/$pid/cmdline");
-            $cmd = str_replace("\0", " ", $cmd);
-            draw_box([
-                " " . color('green', "[✓] SERVICE BERJALAN"),
-                " " . color('white', " PID    : $pid"),
-                " " . color('white', " CMD    : " . substr($cmd, 0, 60) . "...")
-            ], 'green');
-            return;
-        }
-    }
-    draw_box([" " . color('red', "[✗] SERVICE TIDAK BERJALAN")], 'red');
-}
-
-function service_logs() {
-    if (!file_exists(LOG_FILE)) {
-        draw_box([" " . color('yellow', "[!] Belum ada log")], 'yellow');
-        return;
-    }
-    $lines = file(LOG_FILE);
-    $last = array_slice($lines, -20);
-    echo "\n";
-    draw_box([" " . color('cyan', "20 LOG TERAKHIR")], 'cyan');
-    foreach ($last as $l) {
-        $clean = trim(strip_tags($l));
-        if (!empty($clean)) {
-            echo " " . color('white', $clean) . "\n";
-        }
-    }
-    echo "\n " . color('white', "Tekan ENTER...");
-    fgets(STDIN);
-}
-
 // ===== MAIN MENU =====
 while (true) {
     show_banner();
