@@ -1,3 +1,5 @@
+<?php
+
 define('INNER_WIDTH', 44);
 define('ACCOUNT_FILE', 'bintang_accounts.json');
 define('LOG_FILE', 'bintang-service.log');
@@ -354,7 +356,7 @@ function sync_accounts() {
         }
 
         if ($active_count === 0) {
-            $retry_detik = $is_daemon ? 7200 : 7200; // 2 jam (7200 dtk)
+            $retry_detik = 30; // 30 detik
             log_msg("SEMUA AKUN COOLDOWN — retry dalam {$retry_detik}dtk");
 
             draw_box([" " . color('yellow', "[⏳] SEMUA AKUN COOLDOWN — retry {$retry_detik}dtk")], 'yellow');
