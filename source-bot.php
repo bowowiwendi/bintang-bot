@@ -351,6 +351,80 @@ function sync_accounts() {
     }
 }
 
+// ===== SERVICE MANAGEMENT =====
+function service_start() {
+    $pid_file = '/tmp/bintang-bot.pid';
+    if (file_exists($pid_file)) {
+        $pid = trim(file_get_contents($pid_file));
+        if (file_exists("/proc/$pid")) {
+            draw_box([" " . color('yellow', "[⚠️] Service sudah berjalan (PID: $pid)")], 'yellow');
+            return;
+        }
+    }
+
+    $cmd = "nohup php " . __FILE__ . " --daemon > /dev/null 2>&1 &";
+    exec($cmd);
+    sleep(1);
+
+    if (file_exists($pid_file)) {
+        $pid = trim(file_get_contents($pid_file));
+        draw_box([" " . color('green', "[✓] Service dimulai (PID: $pid)")], 'green');
+    } else {
+        draw_box([" " . color('red', "[❌] Gagal memulai service")], 'red');
+    }
+}
+
+function service_stop() {
+    $pid_file = '/tmp/bintang-bot.pid';
+    if (!file_exists($pid_file)) {
+        draw_box([" " . color('yellow', "[⚠️] Service tidak berjalan")], 'yellow');
+        return;
+    }
+
+    $pid = trim(file_get_contents($pid_file));
+    exec("kill $pid 2>/dev/null");
+    sleep(1);
+    @unlink($pid_file);
+    draw_box([" " . color('green', "[✓] Service dihentikan")], 'green');
+}
+
+function service_status() {
+    $pid_file = '/tmp/bintang-bot.pid';
+    if (file_exists($pid_file)) {
+        $pid = trim(file_get_contents($pid_file));
+        if (file_exists("/proc/$pid")) {
+            $cmd = file_get_contents("/proc/$pid/cmdline");
+            $cmd = str_replace("\0", " ", $cmd);
+            draw_box([
+                " " . color('green', "[✓] SERVICE BERJALAN"),
+                " " . color('white', " PID    : $pid"),
+                " " . color('white', " CMD    : " . substr($cmd, 0, 60) . "...")
+            ], 'green');
+            return;
+        }
+    }
+    draw_box([" " . color('red', "[✗] SERVICE TIDAK BERJALAN")], 'red');
+}
+
+function service_logs() {
+    if (!file_exists(LOG_FILE)) {
+        draw_box([" " . color('yellow', "[!] Belum ada log")], 'yellow');
+        return;
+    }
+    $lines = file(LOG_FILE);
+    $last = array_slice($lines, -20);
+    echo "\n";
+    draw_box([" " . color('cyan', "20 LOG TERAKHIR")], 'cyan');
+    foreach ($last as $l) {
+        $clean = trim(strip_tags($l));
+        if (!empty($clean)) {
+            echo " " . color('white', $clean) . "\n";
+        }
+    }
+    echo "\n " . color('white', "Tekan ENTER...");
+    fgets(STDIN);
+}
+
 // ===== MAIN MENU =====
 while (true) {
     show_banner();
@@ -361,19 +435,26 @@ while (true) {
     }
     $total = count($accounts);
 
+    $service_status = file_exists('/tmp/bintang-bot.pid') ? color('green', "AKTIF") : color('red', "MATI");
+
     draw_box([
         " " . color('cyan', "MENU UTAMA"),
         color('blue', center_text("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")),
-        " " . color('white', "Akun: $total (" . color('green', "$active_count aktif") . ")"),
+        " " . color('white', "Akun: $total (" . color('green', "$active_count aktif") . ")  Service: $service_status"),
         "",
         " " . color('white', "1. " . color('green', "[+] Tambah Akun")),
         " " . color('white', "2. " . color('cyan', "[i] Lihat Akun")),
         " " . color('white', "3. " . color('red', "[-] Hapus Akun")),
         " " . color('white', "4. " . color('yellow', "[↻] Sync / Claim Semua")),
-        " " . color('white', "5. " . color('red', "[x] Keluar"))
+        color('blue', center_text("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")),
+        " " . color('white', "5. " . color('green', "[▶] Start Service")),
+        " " . color('white', "6. " . color('red', "[■] Stop Service")),
+        " " . color('white', "7. " . color('cyan', "[ℹ] Cek Status Service")),
+        " " . color('white', "8. " . color('white', "[📋] Lihat Log")),
+        " " . color('white', "9. " . color('red', "[x] Keluar"))
     ], 'cyan');
 
-    echo "\n " . color('yellow', "[?] Pilih menu (1-5) : ");
+    echo "\n " . color('yellow', "[?] Pilih menu (1-9) : ");
     $choice = trim(fgets(STDIN));
 
     switch ($choice) {
@@ -381,7 +462,11 @@ while (true) {
         case '2': list_accounts(); break;
         case '3': delete_account(); break;
         case '4': sync_accounts(); break;
-        case '5':
+        case '5': service_start(); break;
+        case '6': service_stop(); break;
+        case '7': service_status(); break;
+        case '8': service_logs(); break;
+        case '9':
             draw_box([" " . color('white', "Sampai jumpa!")], 'cyan');
             exit;
         default:
