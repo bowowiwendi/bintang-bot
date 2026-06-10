@@ -51,7 +51,7 @@ function color($color, $text) {
 
 function get_visual_length($text) {
     $plain = preg_replace('/\x1b\[[0-9;]*m/', '', $text);
-    return mb_strwidth($plain, 'UTF-8');
+    return function_exists('mb_strwidth') ? mb_strwidth($plain, 'UTF-8') : strlen($plain);
 }
 
 function center_text($text) {
