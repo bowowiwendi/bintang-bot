@@ -302,7 +302,7 @@ function sync_accounts() {
         }
 
         if ($active_count === 0) {
-            $retry_detik = $is_daemon ? 1800 : 30; // 30 menit daemon, 30 dtk manual
+            $retry_detik = $is_daemon ? 7200 : 7200; // 2 jam (7200 dtk)
             log_msg("SEMUA AKUN COOLDOWN — retry dalam {$retry_detik}dtk");
 
             draw_box([" " . color('yellow', "[⏳] SEMUA AKUN COOLDOWN — retry {$retry_detik}dtk")], 'yellow');
