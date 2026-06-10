@@ -1,5 +1,42 @@
 define('INNER_WIDTH', 44);
 define('ACCOUNT_FILE', 'bintang_accounts.json');
+define('LOG_FILE', 'bintang-service.log');
+
+// Daemon mode
+$is_daemon = in_array('--daemon', $argv ?? []);
+$is_help = in_array('--help', $argv ?? []) || in_array('-h', $argv ?? []);
+
+if ($is_help) {
+    echo "Bintang Bot - Auto Claim Telegram\n";
+    echo "Usage: php source-bot.php [--daemon]\n";
+    echo "\n";
+    echo "  --daemon    Run as background service (logs to bintang-service.log)\n";
+    echo "  --help      Show this help\n";
+    exit;
+}
+
+if ($is_daemon) {
+    // Redirect output to log file
+    $log = fopen(LOG_FILE, 'a');
+    fwrite($log, "[" . date('Y-m-d H:i:s') . "] SERVICE STARTED\n");
+    fclose($log);
+
+    // Override echo to log
+    ob_start(function($buffer) use ($log) {
+        file_put_contents(LOG_FILE, "[" . date('Y-m-d H:i:s') . "] " . $buffer, FILE_APPEND);
+        return '';
+    }, 1);
+
+    // Write PID
+    file_put_contents('/tmp/bintang-bot.pid', getmypid());
+}
+
+function log_msg($msg) {
+    global $is_daemon;
+    if ($is_daemon) {
+        file_put_contents(LOG_FILE, "[" . date('Y-m-d H:i:s') . "] " . $msg . "\n", FILE_APPEND);
+    }
+}
 
 function color($color, $text) {
     $colors = [
@@ -44,7 +81,8 @@ function cooldown($seconds) {
 }
 
 function show_banner() {
-    system("clear");
+    global $is_daemon;
+    if (!$is_daemon) system("clear");
     draw_box([
         color('cyan', center_text("AUTO CLAIM BINTANG BOT TELEGRAM")),
         color('blue', center_text("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")),
@@ -172,6 +210,7 @@ function claim_account($url, $headers) {
 }
 
 function sync_accounts() {
+    global $is_daemon;
     $accounts = load_accounts();
     if (empty($accounts)) {
         show_banner();
@@ -263,15 +302,23 @@ function sync_accounts() {
         }
 
         if ($active_count === 0) {
-            draw_box([" " . color('yellow', "[⏳] SEMUA AKUN COOLDOWN — retry otomatis 30dtk")], 'yellow');
-            for ($i = 30; $i > 0; $i--) {
-                echo "\r " . color('yellow', "[⏳] Retry $i dtk... [q] kembali ke menu");
-                $r = [STDIN];
-                $w = null;
-                $e = null;
-                if (stream_select($r, $w, $e, 1) && trim(fgets(STDIN)) === 'q') {
-                    echo "\n";
-                    return;
+            $retry_detik = $is_daemon ? 1800 : 30; // 30 menit daemon, 30 dtk manual
+            log_msg("SEMUA AKUN COOLDOWN — retry dalam {$retry_detik}dtk");
+
+            draw_box([" " . color('yellow', "[⏳] SEMUA AKUN COOLDOWN — retry {$retry_detik}dtk")], 'yellow');
+
+            for ($i = $retry_detik; $i > 0; $i--) {
+                echo "\r " . color('yellow', "[⏳] Retry {$i}dtk...");
+                if (!$is_daemon) {
+                    $r = [STDIN];
+                    $w = null;
+                    $e = null;
+                    if (stream_select($r, $w, $e, 1) && trim(fgets(STDIN)) === 'q') {
+                        echo "\n";
+                        return;
+                    }
+                } else {
+                    sleep(1);
                 }
             }
 
@@ -285,17 +332,22 @@ function sync_accounts() {
         }
 
         $id_klaim++;
-        echo "\n " . color('white', "[ENTER] lanjut, [q] kembali ke menu... ");
-        $r = [STDIN];
-        $w = null;
-        $e = null;
-        $input = '';
-        if (stream_select($r, $w, $e, 3)) {
-            $input = trim(fgets(STDIN));
-        }
-        if (strtolower($input) === 'q') return;
 
-        cooldown(5);
+        log_msg("Round #$id_klaim selesai. " . ($active_count > 0 ? "$active_count akun aktif" : "0 akun aktif"));
+
+        if (!$is_daemon) {
+            echo "\n " . color('white', "[ENTER] lanjut, [q] kembali ke menu... ");
+            $r = [STDIN];
+            $w = null;
+            $e = null;
+            $input = '';
+            if (stream_select($r, $w, $e, 3)) {
+                $input = trim(fgets(STDIN));
+            }
+            if (strtolower($input) === 'q') return;
+        }
+
+        cooldown($is_daemon ? 10 : 5);
     }
 }
 

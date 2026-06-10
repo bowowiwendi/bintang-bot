@@ -1,0 +1,16 @@
+[Unit]
+Description=Bintang Bot - Auto Claim Telegram
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/bintang-bot
+ExecStart=/usr/bin/php /root/bintang-bot/source-bot.php --daemon
+Restart=always
+RestartSec=30
+PIDFile=/tmp/bintang-bot.pid
+
+[Install]
+WantedBy=multi-user.target

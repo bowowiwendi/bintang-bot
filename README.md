@@ -1,20 +1,23 @@
 # Bintang Bot - Auto Claim Telegram
 
-Bot untuk auto-claim task Bintang di spinhub.cc dengan dukungan multi-akun.
+Bot untuk auto-claim task Bintang di spinhub.cc dengan dukungan multi-akun dan mode service.
 
 ## Fitur
 
 - Multi-akun (tambah, lihat, hapus)
 - Auto-claim per round untuk semua akun
-- Auto-retry saat cooldown
+- Auto-retry saat cooldown (30 menit di mode service)
 - Tampilan hasil semua akun dalam satu tabel
+- **Mode daemon** — jalan terus sebagai background service
+- **Systemd support** — auto-start saat server nyala
+- **Smart interval** — claim cepat (10dtk) saat sukses, lambat (30mnt) saat cooldown
 - Penyimpanan akun di file `bintang_accounts.json`
 
 ## Persyaratan
 
-- PHP 8.0+
-- PHP Curl (`php-curl`)
+- PHP 8.0+ (`php`, `php-curl`)
 - Server API Vercel (lihat [vercel-encryptor](https://github.com/bowowiwendi/vercel-encryptor))
+- `nodejs` (hanya untuk generate loader)
 
 ## Instalasi
 
@@ -25,52 +28,70 @@ git clone https://github.com/bowowiwendi/bintang-bot.git
 cd bintang-bot
 ```
 
-### 2. Set API Vercel
-
-Edit atau generate `claim-loader.php` dengan API Vercel kamu:
+### 2. Generate Loader (untuk server target)
 
 ```bash
 node encrypt.mjs source-bot.php RAHASIA_KAMU claim-loader.php https://PROJECT_ANDA.vercel.app/api/run
 ```
 
-Atau langsung edit URL di `source-bot.php` (untuk versi standalone tanpa enkripsi).
+### 3. Tambah Akun (pertama kali)
 
-### 3. Jalankan
-
-```bash
-php claim-loader.php
-```
-
-Atau versi tanpa enkripsi:
+Jalankan manual untuk menambah akun:
 
 ```bash
 php source-bot.php
 ```
 
-## Cara Pakai
+Pilih menu **1** (Tambah Akun) dan masukkan Init Data Telegram.
 
-1. Pilih **Tambah Akun** (menu 1)
-2. Masukkan **nama akun** (opsional)
-3. Masukkan **Telegram Init Data**
-4. Ulangi untuk akun lain
-5. Pilih **Sync / Claim Semua** (menu 4)
-6. Bot akan memproses semua akun dan menampilkan hasilnya
+### 4. Jalankan sebagai Service
 
-## Generate Loader Terenkripsi
+#### Opsi A — Systemd (recommended)
 
 ```bash
-node encrypt.mjs source-bot.php <KEY> loader.php https://API_ANDA.vercel.app/api/run
+cp bintang-bot.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable bintang-bot
+systemctl start bintang-bot
+systemctl status bintang-bot
 ```
 
-Upload `loader.php` ke server target. Tanpa KEY yang sesuai, file tidak bisa didekripsi.
+#### Opsi B — Langsung
+
+```bash
+php source-bot.php --daemon
+```
+
+Log tersimpan di `bintang-service.log`.
+
+### 5. Cek Log
+
+```bash
+tail -f bintang-service.log
+```
+
+## Cara Pakai Manual
+
+```
+  ┌──────────────────────────────────────────┐
+  │             MENU UTAMA                  │
+  │  1. [+] Tambah Akun                    │
+  │  2. [i] Lihat Akun                     │
+  │  3. [-] Hapus Akun                     │
+  │  4. [↻] Sync / Claim Semua            │
+  │  5. [x] Keluar                         │
+  └──────────────────────────────────────────┘
+```
 
 ## Struktur File
 
 ```
 bintang-bot/
-├── source-bot.php       # Source code bot (utama)
-├── encrypt.mjs          # Tool enkripsi untuk generate loader
-├── claim-loader.php     # Loader terenkripsi (generated)
-├── bintang_accounts.json # Data akun (auto-generated)
+├── source-bot.php           # Source code bot (utama)
+├── encrypt.mjs              # Tool enkripsi
+├── claim-loader.php         # Loader terenkripsi (generated)
+├── bintang-bot.service      # Systemd unit file
+├── bintang_accounts.json    # Data akun (auto-generated)
+├── bintang-service.log      # Log file (daemon mode)
 └── README.md
 ```
