@@ -267,10 +267,15 @@ function sync_accounts() {
     global $is_daemon;
     $accounts = load_accounts();
     if (empty($accounts)) {
-        show_banner();
-        draw_box([" " . color('yellow', "[!] Tidak ada akun. Tambah akun dulu.")], 'yellow');
-        echo "\n " . color('white', "Tekan ENTER...");
-        fgets(STDIN);
+        if ($is_daemon) {
+            log_msg("DAEMON: Belum ada akun, tunggu 30 detik...");
+            sleep(30);
+        } else {
+            show_banner();
+            draw_box([" " . color('yellow', "[!] Tidak ada akun. Tambah akun dulu.")], 'yellow');
+            echo "\n " . color('white', "Tekan ENTER...");
+            fgets(STDIN);
+        }
         return;
     }
 
@@ -477,6 +482,16 @@ function service_logs() {
     }
     echo "\n " . color('white', "Tekan ENTER...");
     fgets(STDIN);
+}
+
+// ===== DAEMON AUTO-LOOP =====
+if ($is_daemon) {
+    log_msg("DAEMON: Auto-loop dimulai");
+    while (true) {
+        sync_accounts();
+        log_msg("DAEMON: Selesai 1 round, cooldown 30 detik...");
+        sleep(30);
+    }
 }
 
 // ===== MAIN MENU =====
