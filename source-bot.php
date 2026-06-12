@@ -412,57 +412,50 @@ function sync_accounts() {
 
 // ===== SERVICE MANAGEMENT =====
 function service_start() {
+    $service_file = __DIR__ . '/bintang-bot.service';
+    $sysd_target = '/etc/systemd/system/bintang-bot.service';
+
+    if (!file_exists($sysd_target) && file_exists($service_file)) {
+        copy($service_file, $sysd_target);
+        exec('systemctl daemon-reload 2>/dev/null');
+    }
+
+    exec('systemctl enable bintang-bot 2>/dev/null');
+    exec('systemctl start bintang-bot 2>/dev/null');
+    sleep(2);
+
     $pid_file = '/tmp/bintang-bot.pid';
     if (file_exists($pid_file)) {
         $pid = trim(file_get_contents($pid_file));
-        if (@file_exists("/proc/$pid")) {
-            draw_box([" " . color('yellow', "[!] Service sudah berjalan (PID: $pid)")], 'yellow');
-            return;
-        }
-    }
-
-    $script = $_SERVER['SCRIPT_FILENAME'];
-    $cmd = "nohup php $script --daemon > /dev/null 2>&1 &";
-    exec($cmd);
-    sleep(2);
-
-    if (file_exists($pid_file)) {
-        $pid = trim(file_get_contents($pid_file));
-        draw_box([" " . color('green', "[OK] Service dimulai (PID: $pid)")], 'green');
+        draw_box([" " . color('green', "[OK] Service started & enabled (PID: $pid)")], 'green');
     } else {
-        draw_box([" " . color('red', "[X] Gagal memulai service")], 'red');
+        $out = shell_exec('systemctl is-active bintang-bot 2>/dev/null');
+        if (trim($out) === 'active') {
+            draw_box([" " . color('green', "[OK] Service started & enabled")], 'green');
+        } else {
+            draw_box([" " . color('red', "[X] Gagal memulai service")], 'red');
+        }
     }
 }
 
 function service_stop() {
-    $pid_file = '/tmp/bintang-bot.pid';
-    if (!file_exists($pid_file)) {
-        draw_box([" " . color('yellow', "[!] Service tidak berjalan")], 'yellow');
-        return;
-    }
-
-    $pid = trim(file_get_contents($pid_file));
-    exec("kill $pid 2>/dev/null");
+    exec('systemctl stop bintang-bot 2>/dev/null');
     sleep(1);
-    @unlink($pid_file);
+    @unlink('/tmp/bintang-bot.pid');
     draw_box([" " . color('green', "[OK] Service dihentikan")], 'green');
 }
 
 function service_status() {
-    $pid_file = '/tmp/bintang-bot.pid';
-    if (file_exists($pid_file)) {
-        $pid = trim(file_get_contents($pid_file));
-        if (@file_exists("/proc/$pid")) {
-            $cmd = @file_get_contents("/proc/$pid/cmdline");
-            $cmd = str_replace("\0", " ", $cmd);
-            draw_box([
-                " " . color('green', "[OK] SERVICE BERJALAN"),
-                " " . color('white', " PID: $pid")
-            ], 'green');
-            return;
-        }
+    $out = shell_exec('systemctl is-active bintang-bot 2>/dev/null');
+    if (trim($out) === 'active') {
+        $enabled = trim(shell_exec('systemctl is-enabled bintang-bot 2>/dev/null'));
+        $extra = $enabled === 'enabled' ? ' (auto-start)' : '';
+        draw_box([
+            " " . color('green', "[OK] SERVICE BERJALAN$extra"),
+        ], 'green');
+    } else {
+        draw_box([" " . color('red', "[X] SERVICE TIDAK BERJALAN")], 'red');
     }
-    draw_box([" " . color('red', "[X] SERVICE TIDAK BERJALAN")], 'red');
 }
 
 function service_logs() {
